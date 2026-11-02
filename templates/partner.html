@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NOVA · Delivery Partner Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  <style>
+    body { background: var(--bg); color: var(--text); }
+    .dm-top { display: flex; align-items: center; gap: 14px; padding: 16px 28px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); z-index: 5; }
+    .dm-top .brand { font-family: var(--font-display); font-weight: 800; font-size: 18px; }
+    .dm-top .sub { color: var(--muted); font-size: 13px; }
+    .live { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); padding: 6px 12px; border-radius: 999px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse 1.2s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+    .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; padding: 22px 28px 0; }
+    .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; }
+    .kpi .n { font-family: var(--font-display); font-size: 26px; font-weight: 800; }
+    .kpi .l { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+    .orders { padding: 22px 28px 60px; display: grid; gap: 12px; }
+    .ord { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; display: grid; gap: 10px; }
+    .ord-top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    .ord-id { font-weight: 700; font-family: var(--font-display); }
+    .ord-time { color: var(--muted); font-size: 12.5px; }
+    .pill { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; }
+    .pill.done { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+    .pill.todo { background: color-mix(in srgb, var(--brand) 12%, transparent); color: var(--brand); }
+    .ord-items { color: var(--text-soft); font-size: 13.5px; }
+    .ord-meta { display: flex; flex-wrap: wrap; gap: 8px 20px; color: var(--text-soft); font-size: 13px; }
+    .ord-meta b { color: var(--text); }
+    .ord-amt { font-weight: 700; font-size: 15px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+    .actions button { border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: 12.5px; font-weight: 600; padding: 8px 12px; border-radius: 10px; cursor: pointer; transition: all .15s ease; }
+    .actions button:hover { border-color: var(--accent); color: var(--accent); }
+    .empty { text-align: center; color: var(--muted); padding: 40px 20px; }
+  </style>
+</head>
+<body>
+  <div class="dm-top">
+    <span class="brand">NOVA</span>
+    <span class="sub">Delivery Partner Dashboard</span>
+    <span class="live"><span class="dot"></span>Live — updates every 4s</span>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+  <div class="orders" id="orders"><div class="empty">Loading orders…</div></div>
+
+  <script>
+    const STAGES = ["placed", "confirmed", "packed", "shipped", "out", "delivered"];
+    const LABELS = { placed: "Order placed", confirmed: "Confirmed", packed: "Packed", shipped: "Shipped", out: "Out for delivery", delivered: "Delivered" };
+    const money = n => "₹" + Number(n).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    let orders = [];
+
+    async function load() {
+      try {
+        const r = await fetch("/api/orders/list");
+        const d = await r.json();
+        orders = d.orders || [];
+        render();
+      } catch (e) { /* keep previous */ }
+    }
+
+    function render() {
+      const total = orders.length;
+      const delivered = orders.filter(o => o.status === "Delivered").length;
+      document.getElementById("kpis").innerHTML = `
+        <div class="kpi"><div class="n">${total}</div><div class="l">Total orders</div></div>
+        <div class="kpi"><div class="n">${total - delivered}</div><div class="l">Active deliveries</div></div>
+        <div class="kpi"><div class="n">${delivered}</div><div class="l">Delivered</div></div>
+        <div class="kpi"><div class="n">₹<span style="font-size:18px">${orders.reduce((a, o) => a + (o.total || 0), 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span></div><div class="l">Gross sales</div></div>`;
+      const wrap = document.getElementById("orders");
+      if (!orders.length) { wrap.innerHTML = '<div class="empty">No orders yet. When a customer orders on nova, it appears here instantly.</div>'; return; }
+      wrap.innerHTML = orders.map(o => {
+        const done = new Set((o.tracking || []).filter(t => t.done).map(t => t.stage));
+        const items = (o.items || []).map(i => `${i.name} ×${i.qty}`).join(", ");
+        const next = STAGES.filter(s => s !== "placed" && !done.has(s));
+        const actions = next.length ? '<div class="actions">' + next.map(s => `<button data-id="${o.id}" data-stage="${s}">${LABELS[s]}</button>`).join("") + "</div>" : "";
+        return `<div class="ord" data-id="${o.id}">
+          <div class="ord-top">
+            <span class="ord-id">${o.id}</span>
+            <span class="pill done">${o.status}</span>
+            <span class="ord-time">${(o.created_at || "").replace("T", " ").slice(0, 16)} UTC</span>
+            <span class="ord-amt" style="margin-left:auto">${money(o.total)}</span>
+          </div>
+          <div class="ord-items">${items || "—"}</div>
+          <div class="ord-meta">
+            <span>👤 <b>${o.customer.name}</b></span>
+            <span>📍 ${o.shipping.address}, ${o.shipping.city} ${o.shipping.zip}</span>
+            <span>💳 ${o.payment}</span>
+          </div>
+          ${actions}
+        </div>`;
+      }).join("");
+    }
+
+    document.getElementById("orders").addEventListener("click", async (e) => {
+      const btn = e.target.closest("button[data-stage]");
+      if (!btn) return;
+      btn.disabled = true;
+      const id = btn.dataset.id, stage = btn.dataset.stage;
+      await fetch(`/api/orders/${encodeURIComponent(id)}/status`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stage })
+      });
+      load();
+    });
+
+    load();
+    setInterval(load, 4000);
+  </script>
+</body>
+</html>

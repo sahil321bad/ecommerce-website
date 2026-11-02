@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.env
+
+# Runtime SQLite database (generated & seeded on first run)
+data/nova.db
+data/nova.db-journal
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

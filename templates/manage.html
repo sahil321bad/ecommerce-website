@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NOVA · Store Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  <style>
+    body { background: var(--bg); color: var(--text); }
+    .mg-top { display: flex; align-items: center; gap: 14px; padding: 16px 28px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); z-index: 5; }
+    .mg-top .brand { font-family: var(--font-display); font-weight: 800; font-size: 18px; }
+    .mg-top .sub { color: var(--muted); font-size: 13px; }
+    .live { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); padding: 6px 12px; border-radius: 999px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse 1.2s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+    .layout { display: grid; grid-template-columns: 1.6fr 1fr; gap: 20px; padding: 22px 28px 60px; }
+    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+    .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 18px; }
+    .panel h2 { font-size: 15px; margin: 0 0 14px; display: flex; align-items: center; gap: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; color: var(--muted); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+    td { padding: 8px; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    .p-thumb { width: 38px; height: 38px; border-radius: 10px; object-fit: cover; border: 1px solid var(--line); }
+    input.num { width: 84px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 13px; }
+    .save { border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: 12px; font-weight: 600; padding: 6px 10px; border-radius: 8px; cursor: pointer; }
+    .save:disabled { opacity: .5; }
+    .toast-mini { font-size: 11.5px; color: var(--accent); }
+    .rord { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); font-size: 13px; }
+    .rord:last-child { border-bottom: none; }
+    .rord .amt { margin-left: auto; font-weight: 700; }
+    .empty { color: var(--muted); text-align: center; padding: 24px; font-size: 13px; }
+    .add-panel { grid-column: 1 / -1; }
+    .add-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+    .add-grid .full { grid-column: 1 / -1; }
+    .add-grid label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 5px; }
+    .add-grid input, .add-grid select, .add-grid textarea {
+      width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 10px;
+      background: var(--bg); color: var(--text); font-size: 13px;
+    }
+    .add-grid textarea { resize: vertical; min-height: 62px; }
+    .add-grid button[type="submit"] { padding: 10px 18px; font-size: 13px; }
+    #apMsg { margin-left: 10px; font-size: 12.5px; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="mg-top">
+    <span class="brand">NOVA</span>
+    <span class="sub">Store Manager · Product Listing</span>
+    <span class="live"><span class="dot"></span>Live</span>
+  </div>
+
+  <div class="layout">
+    <div class="panel add-panel">
+      <h2>➕ Add new product <span class="toast-mini">(publishes live to the store)</span></h2>
+      <div id="authBox" style="margin-bottom:14px; padding:12px; border:1px solid var(--line); border-radius:12px; background:var(--bg)">
+        <div id="authLogged" hidden><b>👤 Logged in as:</b> <span id="authEmail"></span></div>
+        <div id="authLoginForm" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+          <input id="authMail" type="email" placeholder="Manager email" style="flex:1;min-width:150px">
+          <input id="authPass" type="password" placeholder="Password" style="flex:1;min-width:120px">
+          <button class="save" type="button" id="authBtn">Log in</button>
+          <span id="authMsg" class="toast-mini"></span>
+          <div style="font-size:12px;color:var(--muted);width:100%">Default: sahilbadarkhe@gmail.com / sahil321</div>
+        </div>
+      </div>
+      <form id="addForm" class="add-grid" novalidate>
+        <div class="full"><label>Product name *</label><input id="apName" placeholder="e.g. Quantum Bluetooth Speaker" required></div>
+        <div><label>Category *</label>
+          <select id="apCat">
+            <option>Audio</option><option>Wearables</option><option>Gaming</option>
+            <option>Home</option><option>Fashion</option><option>Lifestyle</option>
+          </select>
+        </div>
+        <div><label>Price (₹) *</label><input id="apPrice" type="number" min="0" step="0.01" placeholder="1499" required></div>
+        <div><label>Old price (₹)</label><input id="apOld" type="number" min="0" step="0.01" placeholder="1999"></div>
+        <div><label>Stock *</label><input id="apStock" type="number" min="0" value="10"></div>
+        <div><label>Emoji</label><input id="apEmoji" maxlength="4" value="📦" style="text-align:center"></div>
+        <div class="full"><label>Description</label><textarea id="apDesc" placeholder="Short description shown on the product card"></textarea></div>
+        <div class="full"><label>Image URL (optional)</label><input id="apImg" placeholder="https://example.com/photo.jpg"></div>
+        <div class="full">
+          <button class="save" type="submit" data-need-auth>＋ Publish product</button>
+          <span id="apMsg"></span>
+        </div>
+      </form>
+    </div>
+
+    <div class="panel">
+      <h2>📦 Products</h2>
+      <table id="prodTable">
+        <thead><tr><th></th><th>Product</th><th>Category</th><th>Price ₹</th><th>Old ₹</th><th>Stock</th><th></th></tr></thead>
+        <tbody id="prodBody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <h2>🛒 Recent orders <span class="toast-mini">(live from store)</span></h2>
+      <div id="recent"><div class="empty">Loading…</div></div>
+    </div>
+  </div>
+
+  <script>
+    const money = n => "₹" + Number(n).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    let products = [];
+
+    async function loadProducts() {
+      const r = await fetch("/api/products?sort=featured");
+      const d = await r.json();
+      products = d.products || [];
+      renderProducts();
+    }
+
+    function renderProducts() {
+      document.getElementById("prodBody").innerHTML = products.map(p => `
+        <tr data-id="${p.id}">
+          <td><img class="p-thumb" src="${p.img_url || p.img_url2}" alt="" onerror="this.style.display='none'"></td>
+          <td><b>${p.name}</b></td>
+          <td>${p.category}</td>
+          <td><input class="num" data-f="price" type="number" min="0" step="0.01" value="${p.price}"></td>
+          <td><input class="num" data-f="old_price" type="number" min="0" step="0.01" value="${p.old_price ?? ""}" placeholder="—"></td>
+          <td><input class="num" data-f="stock" type="number" min="0" value="${p.stock}"></td>
+          <td><button class="save" data-save="${p.id}" data-need-auth>Save</button></td>
+        </tr>`).join("");
+    authApply();
+    }
+
+    document.getElementById("prodBody").addEventListener("click", async (e) => {
+      const btn = e.target.closest("button[data-save]");
+      if (!btn) return;
+      const id = btn.dataset.save;
+      const tr = btn.closest("tr");
+      const body = {};
+      tr.querySelectorAll("input[data-f]").forEach(inp => {
+        const k = inp.dataset.f, v = inp.value;
+        body[k] = (k === "stock") ? parseInt(v, 10) : (v === "" ? null : parseFloat(v));
+      });
+      if (!authToken) { btn.textContent = "Log in first"; setTimeout(() => { btn.textContent = "Save"; }, 1500); return; }
+      btn.disabled = true;
+      const r = await fetch(`/api/products/${encodeURIComponent(id)}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + authToken }, body: JSON.stringify(body)
+      });
+      const d = await r.json();
+      if (d.product) {
+        const p = d.product;
+        tr.querySelector('[data-f="price"]').value = p.price;
+        tr.querySelector('[data-f="old_price"]').value = p.old_price ?? "";
+        tr.querySelector('[data-f="stock"]').value = p.stock;
+        btn.textContent = "Saved ✓";
+        setTimeout(() => { btn.textContent = "Save"; btn.disabled = false; }, 1200);
+      } else {
+        btn.textContent = "Error"; setTimeout(() => { btn.textContent = "Save"; btn.disabled = false; }, 1500);
+      }
+    });
+
+    async function loadRecent() {
+      try {
+        const r = await fetch("/api/orders/list");
+        const d = await r.json();
+        const recent = (d.orders || []).slice(0, 10);
+        const wrap = document.getElementById("recent");
+        if (!recent.length) { wrap.innerHTML = '<div class="empty">No orders yet.</div>'; return; }
+        wrap.innerHTML = recent.map(o => `
+          <div class="rord">
+            <span>${o.id}</span>
+            <span class="amt">${money(o.total)}</span>
+          </div>`).join("");
+      } catch (e) {}
+    }
+
+    // Add new product → publishes live to the store.
+    document.getElementById("addForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById("apMsg");
+      const payload = {
+        name: apName.value.trim(),
+        category: apCat.value,
+        price: parseFloat(apPrice.value),
+        old_price: apOld.value === "" ? null : parseFloat(apOld.value),
+        stock: parseInt(apStock.value, 10),
+        emoji: apEmoji.value.trim() || "📦",
+        description: apDesc.value.trim(),
+        img_url: apImg.value.trim() || null,
+      };
+      if (!authToken) { msg.textContent = "Log in first to publish"; msg.style.color = "#e5533d"; return; }
+      const r = await fetch("/api/products", {
+        method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + authToken }, body: JSON.stringify(payload),
+      });
+      const d = await r.json();
+      if (!r.ok) { msg.textContent = d.error || "Error publishing product"; msg.style.color = "#e5533d"; return; }
+      msg.textContent = "Published ✓ — live on the store now";
+      msg.style.color = "var(--accent)";
+      addForm.reset(); apEmoji.value = "📦"; apStock.value = "10";
+      loadProducts();
+      setTimeout(() => { msg.textContent = ""; }, 4000);
+    });
+
+    // ---- Manager auth (required to publish/edit products) ----
+    const AUTH_KEY = "nova-manager-token";
+    let authToken = sessionStorage.getItem(AUTH_KEY) || "";
+
+    function authApply() {
+      const logged = !!authToken;
+      document.getElementById("authLogged").hidden = !logged;
+      document.getElementById("authLoginForm").style.display = logged ? "none" : "flex";
+      if (logged) document.getElementById("authEmail").textContent = sessionStorage.getItem("nova-manager-email") || "manager";
+      document.querySelectorAll("[data-need-auth]").forEach(el => { el.disabled = !logged; });
+    }
+
+    document.getElementById("authBtn").addEventListener("click", async () => {
+      const msgEl = document.getElementById("authMsg");
+      const r = await fetch("/api/login", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: authMail.value.trim(), password: authPass.value }),
+      });
+      const d = await r.json();
+      if (!r.ok) { msgEl.textContent = d.error || "Login failed"; return; }
+      authToken = d.token;
+      sessionStorage.setItem(AUTH_KEY, authToken);
+      sessionStorage.setItem("nova-manager-email", d.user.email);
+      msgEl.textContent = "Logged in ✓"; msgEl.style.color = "var(--accent)";
+      authApply();
+    });
+
+    loadProducts(); loadRecent();
+    authApply();
+    setInterval(loadProducts, 6000);
+    setInterval(loadRecent, 4000);
+  </script>
+</body>
+</html>

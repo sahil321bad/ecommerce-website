@@ -11,3 +11,7 @@ data/nova.db-journal
 .idea/
 .DS_Store
 Thumbs.db
+
+# AI coding tool configs (local, machine-specific)
+.claude/
+.codex/
